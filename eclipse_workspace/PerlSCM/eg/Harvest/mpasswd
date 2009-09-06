@@ -1,0 +1,9 @@
+#!/usr/bin/ksh
+
+# Utility to set encrypted password for Harvest
+
+logname=`logname`
+
+echo Enter your Harvest password:
+svrenc -usr $logname -dir /var/opt/harvest/usr/${logname} -f .harvest-${logname}.dfo
+

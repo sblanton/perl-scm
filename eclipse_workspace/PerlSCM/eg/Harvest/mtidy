@@ -1,0 +1,21 @@
+#!/usr/bin/perl
+
+use File::Basename;
+use strict;
+
+my @perl_files = grep /\.pl$|\.pm$|\.t$/, @ARGV;
+
+exit 0 unless @perl_files;
+
+print `perltidy -b -bext=untdy @perl_files 2>&1`;
+
+print "ERROR\n" unless $? == 0;
+
+unless ( -d "tidy" ) { mkdir "tidy", 0775 }
+
+foreach my $dir (@perl_files) {
+    $dir = dirname($dir);
+    print `mv -f $dir/*.untdy tidy/ 2>/dev/null`;
+
+}
+

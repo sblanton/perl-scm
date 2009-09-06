@@ -1,0 +1,118 @@
+#!/usr/bin/perl
+
+=head1 Name
+
+mkbdeploy
+
+=head1 Synopsis
+
+ Deploys files from the Harvest 'meister' project to a Meister knowledgebase
+ runtime directory under .../openmake.war/.
+
+ Uses $SHARED_HARUDP/conf/mscm.properties for determining the tier that files
+ will be checked out from.
+
+=head1 Description
+
+This uses the hsync command in 'Active' mode (packages in state) to check out only
+the changes in a Harvest state to the Meister kb directory.
+
+The hysnc is done in a temporary location and then files are copied into the runtime area.
+
+It is important that the files be writable after copying and the script does that.
+
+=head1 Usage
+
+mkbdeploy <component>
+
+=head1 Examples
+
+C<< hardev> mkbdeploy kb/projects >>
+
+Copies all projects and search paths from the dev reference directory.
+
+C<< harqa> mkbdeploy kb/jobs/public >>
+
+Copies all public jobs from the qa reference directory.
+
+C<< harprod> mkbdeploy kb/jobs/public >>
+
+Copies all public jobs in packages in the prod state from the prod reference directory.
+
+=cut
+
+#-- Load modules
+use Log::Log4perl "get_logger";
+use SCM::Tool::VersionControl::Harvest7;
+use File::Copy::Recursive qw(dircopy);
+use File::Find;
+use File::Path;
+use AmFam::MPSCM;
+use AmFam::DBI;
+
+use strict;
+
+#####################################################
+# Set up logging and inital args
+#####################################################
+#-- Initialize log4perl
+my $logname = `logname 2>/dev/null`;
+$logname = 'har006' if $?;
+chomp $logname;
+
+Log::Log4perl::init("/var/opt/harvest/usr/$logname/log4perl-$logname.conf");
+my $logger = get_logger("SCM");
+
+#-- Load our properties
+my $p = LoadProperties("$ENV{SHARED_HARUDP}/conf/mscm.properties");
+my $tier      = $p->{state};
+
+$tier or die;
+
+my $component = shift or die;
+
+my $refdir = "/var/opt/harvest/vista/${tier}/refdir/meister";
+my $component_refdir = "$refdir/linux/meister/kbserver/tomcat/webapps/openmake.ear/openmake.war/${component}";
+my $kb_runtime_dir = "/opt/ca/harvest/server_tools/meister/kbserver/tomcat/webapps/openmake.ear/openmake.war/$component";
+
+die unless -d $kb_runtime_dir;
+
+rmtree($refdir) if -d $refdir;
+mkpath($component_refdir);
+
+#-- Instantiate the harvest context
+
+my $harctx = SCM::Tool::VersionControl::Harvest7->new();
+$harctx->{USERFILE} = "/var/opt/harvest/usr/$logname/.harvest-${logname}.dfo";
+$harctx->{PROJECT} = 'meister';
+$harctx->{STATE} = $tier;
+$harctx->{VIEWPATH} = "/meister/deployable/linux/meister/kbserver/tomcat/webapps/openmake.ear/openmake.war/${component}";
+$harctx->{CLIENTPATH} = $component_refdir;
+my $broker = $harctx->{BROKER} = 'harprod';
+$harctx->{HARVESTHOME} = $p->{"${broker}.harvesthome"};
+
+#-- Instantiate the db handle
+my $amfam_dbi = AmFam::DBI->new();
+$amfam_dbi->set_oracle('ha5p');
+my $hardbh = $amfam_dbi->get_oracle_dbh();
+
+my $rc = $harctx->HsyncActiveView($hardbh);
+
+#######################################
+#-- Ensure the read-only permissions are not carried over
+#   to the kb/ directory:
+$File::Copy::Recursive::KeepMode = 0;
+#######################################
+
+if ( $rc == 0 ) {
+
+print "Copying: $component_refdir\n";
+print "to:      $kb_runtime_dir\n";
+
+my $num_copied = dircopy($component_refdir, $kb_runtime_dir);
+
+print "Copied $num_copied items.\n";
+
+}
+
+

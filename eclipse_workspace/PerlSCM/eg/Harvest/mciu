@@ -1,0 +1,127 @@
+#!/usr/bin/perl -w
+
+#-- Load modules
+use Log::Log4perl "get_logger";
+use SCM::Tool::VersionControl::Harvest7;
+use File::Basename;
+use strict;
+
+#-- Set up lists of extension, directories and files
+#   to exclude from running unit tests
+my @regex_exclusions = qw(
+ \\.t$
+ \\.ksh$
+ ^UNIT/
+ ^conf/
+ ^cpan/
+ ^setenv-unit
+);
+
+my $is_recursive = 0;
+
+#-- If the first arg starts with a dash, user is indicating recursive check in
+#if ( @ARGV && $ARGV[0] =~ /^-/ ) {
+# shift;
+# $is_recursive = 1;
+#}
+
+#-- Initialize log4perl
+
+my $logname = `logname 2>/dev/null`;
+$logname = 'har006' if $?;
+chomp $logname;
+
+Log::Log4perl::init("/var/opt/harvest/usr/$logname/log4perl-$logname.conf");
+my $logger = get_logger("SCM");
+
+#$logger->logdie("No files passed. Usage: mco [-r] <files>")
+# unless @ARGV;
+
+#-- Instantiate the Harvest context
+my $harctx = SCM::Tool::VersionControl::Harvest7->new();
+$harctx->{USERFILE} = "/var/opt/harvest/usr/$logname/.harvest-${logname}.dfo";
+$harctx->load(".harvest-global.ctx");
+$harctx->load("/var/opt/harvest/usr/$logname/.harvest-$logname.ctx");
+
+my $component = $ENV{unit};
+$component =~ s/\.pl|\.pm//;
+
+my @files = `find $component -type f ! -name .harvest.sig`;
+push @files, $ENV{unit};
+
+$harctx->{CLIENTPATH} = $ENV{SHARED_HARUDP};
+
+my @quotedFiles;
+
+#-- Quote the files...
+foreach my $file (@files) {
+ push @quotedFiles, glob($file);
+ #push @quotedFiles, "\"$file\"";
+
+}
+
+unless (exists $ENV{NOTIDY} ) {
+ my @t = `mtidy @files`;
+
+ if ( $? > 0 ) {
+    $logger->logdie(@t);
+
+ } elsif ( $? < 0 ) {
+    $logger->error("Couldn't execute mtidy");
+
+ } else {
+    $logger->info( "mtidy ", @t );
+ }
+
+}
+
+#-- Check for and run unit scripts
+
+
+foreach my $folder ( @files ) {
+ 
+ my $skipit = 0;
+ foreach my $pattern ( @regex_exclusions ) { 
+  my $regex = qr/$pattern/;
+  if ($folder =~ /$regex/ ) {
+   $skipit = 1;
+  }
+
+ }
+
+ if ( $skipit ) {
+   $logger->info("Skipping $folder from UNIT test requirements...");
+ next; 
+ }
+
+ my ( $name, $path, $ext ) = fileparse( $folder, qw( .pl .pm ) );
+
+ #-- Check for existence of a unit test script and print nasty
+ #   warning otherwise
+ my $unit_test_script = "$ENV{SHARED_HARUDP}/UNIT/$path$name/test_all_build.pl";
+
+ if ( -f $unit_test_script) {
+  #-- Run unit test:
+  $logger->info(`$unit_test_script`);
+  
+ } else {
+  $logger->warn("YOU DO NOT HAVE A UNIT TEST SCRIPT FOR '$folder'\nYou need to have '$unit_test_script'\nMaybe you forgot to run '. setenv-unit $path$name$ext'?")
+ } 
+
+}
+
+$harctx->{CHECKIN_OPTS} = ' -op pc ';
+$harctx->{CLIENTPATH} = `pwd`;
+chomp $harctx->{CLIENTPATH};
+
+my $rc = 0;
+$logger->info("Checking in @quotedFiles");
+
+if ( $is_recursive ) {
+    $rc = $harctx->CheckInRecursive(@quotedFiles);
+
+} else {
+    $rc = $harctx->put(@quotedFiles);
+
+}
+

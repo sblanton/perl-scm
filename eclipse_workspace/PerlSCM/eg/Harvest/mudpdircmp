@@ -1,0 +1,3 @@
+#!/usr/bin/ksh
+
+dircmp -s -w120 /var/opt/harvest/mpscm-dev/ca/udp  /var/opt/harvest/ca/udp | grep -v tidy | grep -v logs | grep -v bkup | grep -v .harvest.sig 

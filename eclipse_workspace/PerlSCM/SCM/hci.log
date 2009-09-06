@@ -1,0 +1,14 @@
+I00060040: New connection with Broker harprod  established.
+I00020100: File ./System/Lawson.pm  checked into \mpscm\common\var\opt\harvest\ca\udp\System\Lawson.pm;0 .
+I00020100: File ./System.pm  checked into \mpscm\common\var\opt\harvest\ca\udp\System.pm;0 .
+I00020100: File ./Tool/Build/Openmake/Lawson.pm  checked into \mpscm\common\var\opt\harvest\ca\udp\Tool\Build\Openmake\Lawson.pm;0 .
+I00020100: File ./Tool/Build/Openmake.pm  checked into \mpscm\common\var\opt\harvest\ca\udp\Tool\Build\Openmake.pm;0 .
+I00020100: File ./Tool/Build.pm  checked into \mpscm\common\var\opt\harvest\ca\udp\Tool\Build.pm;0 .
+I00020100: File ./Tool/VersionControl/Harvest/Lawson.pm  checked into \mpscm\common\var\opt\harvest\ca\udp\Tool\VersionControl\Harvest\Lawson.pm;0 .
+I00020100: File ./Tool/VersionControl/Harvest.pm  checked into \mpscm\common\var\opt\harvest\ca\udp\Tool\VersionControl\Harvest.pm;0 .
+I00020100: File ./Tool/VersionControl/Subversion.pm  checked into \mpscm\common\var\opt\harvest\ca\udp\Tool\VersionControl\Subversion.pm;0 .
+I00020100: File ./Tool/VersionControl.pm  checked into \mpscm\common\var\opt\harvest\ca\udp\Tool\VersionControl.pm;0 .
+I00020100: File ./Tool.pm  checked into \mpscm\common\var\opt\harvest\ca\udp\Tool.pm;0 .
+I00020100: File ./hci.log  checked into \mpscm\common\var\opt\harvest\ca\udp\hci.log;0 .
+I00060079: Check in summary: Total: 11 ; Success: 11 ; Failed: 0 ; Not Processed: 0 .
+Checkin has been executed successfully.

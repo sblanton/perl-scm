@@ -1,0 +1,42 @@
+#!/usr/bin/env perl
+
+my $project = shift;
+
+#-- Load modules
+use Log::Log4perl "get_logger";
+use SCM::Tool::VersionControl::Harvest7;
+use AmFam::MPSCM;
+use strict;
+
+#-- Initialize log4perl
+
+my $logname = `logname`;
+chomp $logname;
+
+Log::Log4perl::init("/var/opt/harvest/usr/$logname/log4perl-$logname.conf");
+my $logger = get_logger("SCM");
+
+my $project_file = "/var/opt/harvest/usr/$logname/harvest.prj";
+
+$logger->logdie("$project_file does not exist.") unless -f $project_file;
+
+my %project_properties = LoadProperties($project_file);
+
+#-- Instantiate the harvest context
+
+$logger->logdie("Package property not found for project $project.")
+ unless exists $project_properties{ "${project}.package" };
+
+$logger->info("Switching package for '$project' to " . $project_properties{ "${project}.package" } . " .");
+
+if ( exists $project_properties{"${project}.project"} ) {
+ $logger->info("Switching project for '$project' to ". $project_properties{"${project}.project"} . " .");
+}
+
+my $my_harctx = SCM::Tool::VersionControl::Harvest7->new();
+
+$my_harctx->load( "/var/opt/harvest/usr/$logname/.harvest-$logname.ctx");
+$my_harctx->set(PACKAGE => $project_properties{ "${project}.package" } );
+$my_harctx->set(PROJECT => $project_properties{ "${project}.project" } );
+$my_harctx->save( "/var/opt/harvest/usr/$logname/.harvest-$logname.ctx");
+

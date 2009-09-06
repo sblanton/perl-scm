@@ -1,0 +1,65 @@
+#!/usr/bin/env perl
+
+#-- Load modules
+use Log::Log4perl "get_logger";
+use SCM::Tool::VersionControl::Harvest7;
+
+#-- Get command line args
+my $cr = shift;
+my $description = shift;
+
+unless ( $cr =~ /^\d+/ and $description ) {
+ usage();
+ ($cr, $description) = ask_for_input(); #-- user does not 
+
+}
+
+#-- Initialize log4perl
+
+my $logname = `logname 2>/dev/null`;
+$logname = 'har006' if $?;
+chomp $logname;
+
+Log::Log4perl::init("/var/opt/harvest/usr/$logname/log4perl-$logname.conf");
+my $logger = get_logger("SCM");
+
+#-- Instantiate the harvest context
+
+$harctx = SCM::Tool::VersionControl::Harvest7->new();
+$harctx->{USERFILE} = "/var/opt/harvest/usr/$logname/.harvest-${logname}.dfo";
+$harctx->load( ".harvest-global.ctx");
+$harctx->load( "/var/opt/harvest/usr/$logname/.harvest-$logname.ctx");
+
+my $package = $harctx->{PROJECT} . "-$cr" . "-$description";
+
+$harctx->set(PACKAGE => "$package" );
+
+print "Creating package $package..\n";
+$harctx->CreatePackage();
+
+#-- SAB: why create a new context object? Don't remember why
+
+$my_harctx = SCM::Tool::VersionControl::Harvest7->new();
+$my_harctx->load( "/var/opt/harvest/usr/$logname/.harvest-$logname.ctx");
+$my_harctx->set(PACKAGE => $package );
+$my_harctx->save( "/var/opt/harvest/usr/$logname/.harvest-$logname.ctx");
+
+sub ask_for_input {
+ print "Please enter the MP-SCM CR#: ";
+ my $cr = <STDIN>;
+ chomp $cr;
+
+ print "Please enter a short description without any spaces: ";
+ my $description = <STDIN>;
+ chomp $description;
+
+ return $cr, $description;
+ 
+}
+
+sub usage {
+ print "Usage: mcp  <MP-SCM CR#>  <short description w/o space>\n";
+
+}
+
+1;

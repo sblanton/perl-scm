@@ -1,0 +1,61 @@
+#!/usr/bin/perl
+
+=head1 Name
+
+m_dev_deploy.ksh <Harvest project using 'mpscm' repository>
+
+=head1 Synopsis
+
+Synchronizes the dev UDP script area with the dev state working view of the specified Harvest project.
+
+=head1 Description
+
+Runs a simple hsync command and write the log to /tmp/m_dev_deploy.ksh
+
+Cleans out the $SHARED_HARUDP/UNIT folder before running hsync.
+
+hsync is not smart enough to manage differences between parallel projects
+
+=cut
+
+use AmFam::MPSCM;
+use File::Path;
+
+my $project = shift or die "usage: $0 <project>";
+die "project must start with 'mpscmudp'" unless $project =~ /^mpscmudp/;
+
+my $property_file = 'conf/mscm.properties';
+
+my $p = LoadProperties($property_file);
+
+die unless $p->{state};
+
+my $state=$p->{state};
+my $log="/tmp/m_${state}_deploy.log";
+my $shudp="/var/opt/harvest/mpscm-${state}/ca/udp";
+
+$ENV{HARVESTHOME} = $p->{"harprod.harvesthome"};
+
+#-- Clean out old unit scripts because they may test code
+#   that is not there anymore
+
+rmtree("${shudp}/UNIT");
+
+my $cmd = "$ENV{HARVESTHOME}/bin/hsync -b harprod -en $project -st $state -vp /mpscm/common/var/opt/harvest/ca/udp -cp $shudp -sy -o $log -eh $ENV{HARVESTHOME}/harvest.dfo";
+
+my @output = `$cmd 2>&1`;
+ParseSystemRC($0,$cmd,$?,$!);
+
+$cmd = "$ENV{HARVESTHOME}/bin/hsync -b harprod -en $project -st $state -vp /mpscm/deployable/mpscmudpConfig/$state/shared_harudp/conf -cp ${shudp}/conf -sy -oa $log -eh $ENV{HARVESTHOME}/harvest.dfo";
+
+@output = `$cmd 2>&1`;
+ParseSystemRC($0,$cmd,$?,$!);
+
+open LOG, "<$log" or die;
+my @lines = <LOG>;
+close LOG;
+
+my @errors = grep /^E/,@lines;
+
+print "@errors\n";
+

@@ -1,0 +1,54 @@
+#!/usr/bin/env perl
+
+#-- Load modules
+use Log::Log4perl "get_logger";
+use SCM::Tool::VersionControl::Harvest;  #-- uses user and password
+use SCM::Tool::VersionControl::Harvest7; #-- uses encrypted password file
+use strict;
+
+my $repository = pop;
+my $project = pop;
+my $password = pop;
+my $user = pop;
+
+die "usage: mcbl [<user> <password>] <project> <repository>\n"
+ unless $project and $repository;
+
+#-- Initialize log4perl
+
+my $logname;
+our $Log4perlLogFile = "$ENV{VISTA}/prod/logs/ctp-harvest.log";
+Log::Log4perl::init("$ENV{SHARED_HARUDP}/conf/ctp-log4perl.conf");
+my $logger = get_logger("SCM");
+
+unless ( $user and $password ) {
+ $logname = `logname`;
+ chomp $logname;
+
+}
+
+#-- Instantiate the harvest context
+
+my $harctx = SCM::Tool::VersionControl::Harvest7->new();
+
+if ( $user and $password ) {
+ $harctx->{USER} = $user;
+ $harctx->{PASSWORD} = $password;
+
+ $repository = $project
+  unless $repository;
+
+} else {
+ $harctx->{USERFILE} = "/var/opt/harvest/usr/$logname/.harvest-${logname}.dfo";
+
+ $repository = $project
+  unless $repository;
+
+}
+
+$harctx->{BROKER}   = "harprod";
+$harctx->{PROJECT}  = $project;
+
+$logger->info("${user}: Adding $repository baseline to $project...");
+$harctx->AddBaseline($project );
+

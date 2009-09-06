@@ -1,0 +1,33 @@
+#!/usr/bin/env perl
+
+#-- Load modules
+use Log::Log4perl "get_logger";
+use SCM::Tool::VersionControl::Harvest7;
+
+#-- Initialize log4perl
+my $logname = `logname`;
+chomp $logname;
+
+Log::Log4perl::init("/var/opt/harvest/usr/$logname/log4perl-$logname.conf");
+my $logger = get_logger("SCM");
+
+#-- Instantiate the harvest context
+
+$harctx = SCM::Tool::VersionControl::Harvest7->new();
+$harctx->{USERFILE} = "/var/opt/harvest/usr/$logname/.harvest-${logname}.dfo";
+$harctx->load(".harvest-global.ctx");
+$harctx->load("/var/opt/harvest/usr/$logname/.harvest-$logname.ctx");
+$harctx->{PROCESSNAME} = "Check Out for Browse";
+
+$harctx->{STATE} = 'snapshots';
+
+$harctx->{SNAPSHOT} = shift;
+
+my @files;
+foreach my $file ( @ARGV ) {
+ push @files, "\"$file\"";
+
+}
+
+$harctx->CheckOutSnapshot(@files);
+

@@ -1,0 +1,101 @@
+#!/usr/bin/env perl
+#-- Script to check in Openmake script templates into Harvest
+
+unless ( $ENV{OMWARHOME} ) {
+ $ENV{OMWARHOME} = '/opt/ca/harvest/server_tools/openmake641/tomcat/webapps/openmake.ear/openmake.war';
+}
+
+#-- Load modules
+use strict;
+use Log::Log4perl "get_logger";
+use SCM::Tool::VersionControl::Harvest7;
+use Openmake::FileList;
+use File::Find;
+
+Log::Log4perl::init("$ENV{SHARED_HARUDP}/conf/omkb-log4perl.conf");
+my $logger = get_logger("SCM");
+
+#-- Get user's name
+#my $logname = `logname`;
+my $logname = 'sab070';
+chomp $logname;
+
+#-- Instantiate the harvest context
+
+my $harctx = SCM::Tool::VersionControl::Harvest7->new();
+
+$harctx->load( "$ENV{SHARED_HARUDP}/conf/openmake641kb-harvest.ctx");
+$harctx->{VIEWPATH} .= "\\scripts";
+
+$harctx->{USERFILE} = "/var/opt/harvest/usr/$logname/.harvest-$logname.dfo";
+$harctx->{CHECKIN_OPTS} = " -d ";
+
+my $package = "openmake-script-templates-" . time();
+
+#-- GET LIST OF FILES TO CHECK IN HERE
+unless ( -d $harctx->{CLIENTPATH} ) {
+ mkdir $harctx->{CLIENTPATH} or $logger->logdie("Couldn't make destination directory!");
+}
+
+$harctx->{CLIENTPATH} .= $Openmake::FileList::DL . "scripts";
+unless ( -d $harctx->{CLIENTPATH} ) {
+ mkdir $harctx->{CLIENTPATH} or $logger->logdie("Couldn't make destination directory!");
+}
+
+$harctx->set(PACKAGE => $package );
+$logger->info("Creating package $package");
+$harctx->CreatePackage();
+
+$logger->info("Copying files from $ENV{OMWARHOME}/scripts to $harctx->{CLIENTPATH}");
+$logger->info("cp: " . `cp -Rf $ENV{OMWARHOME}/scripts/* $harctx->{CLIENTPATH}`);
+$logger->logdie("cp failed! $?: $!")
+ unless $? == 0;
+
+my @files;
+
+use vars qw/*name *dir/;
+*name = *File::Find::name; 
+*dir = *File::Find::dir; 
+
+File::Find::find({wanted => \&wanted}, $harctx->{CLIENTPATH});
+
+my $fileListObject = new Openmake::FileList( @files );
+@files = $fileListObject->getQuotedList();
+$logger->info("Found files: @files");
+
+$logger->logdie("No files found!")
+ unless @files;
+
+#for ( my $i = 0; $i * 50 <= $#files ; $i += 50 ) {
+
+# my $last_index = ($i + 50 < $#files) ? $i + 50 : $#files;
+ 
+ my $i=0;
+ my $last_index = 5;
+ 
+# $logger->info("Reserving files @files[$i..$last_index]");
+# $harctx->lock(@files[$i..$last_index]); #-- reserve files
+
+$logger->info("Reserving files @files");
+$harctx->lock(@files);  #-- check them in
+
+# $logger->info("Checking in files @files[$i..$last_index]");
+$logger->info("Checking in files @files");
+$harctx->put(@files);  #-- check them in
+# $harctx->put(@files[$i..$last_index]); #-- reserve files
+
+#}
+
+sub wanted {
+ my ( $dev, $ino, $mode, $nlink, $uid, $gid); 
+
+ if ( 
+  (($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_)) &&
+  -f _ &&
+  ! /^web\.xml\z/s &&
+  ! /^license\.kb\z/s &&
+  ! /\.log\z/s &&
+  ! /^\.harvest\.sig\z/s
+ ) { push @files,$_}
+
+}

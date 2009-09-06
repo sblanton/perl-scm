@@ -1,0 +1,51 @@
+#!/usr/bin/env perl
+
+#-- Load modules
+use Log::Log4perl "get_logger";
+use SCM::Tool::VersionControl::Harvest7; 
+use strict;
+
+my $new_path = pop;
+my $password = pop;
+my $user = pop;
+
+die "usage: mcip <new path>\n"
+ unless $new_path;
+
+#-- Initialize log4perl
+
+my  $logname = `logname`;
+ chomp $logname;
+
+Log::Log4perl::init("/var/opt/harvest/usr/$logname/log4perl-$logname.conf");
+my $logger = get_logger("SCM");
+
+#-- Instantiate the harvest context
+
+my $harctx;
+$harctx = SCM::Tool::VersionControl::Harvest7->new();
+$harctx->{USERFILE} = "/var/opt/harvest/usr/$logname/.harvest-${logname}.dfo";
+$harctx->load(".harvest-global.ctx");
+$harctx->load("/var/opt/harvest/usr/$logname/.harvest-$logname.ctx");
+
+
+if ( $user and $password ) {
+ $harctx->{USER} = $user;
+ $harctx->{PASSWORD} = $password;
+
+} else {
+ $harctx->{USERFILE} = "/var/opt/harvest/usr/$logname/.harvest-${logname}.dfo";
+
+}
+
+$harctx->{BROKER}  = "harprod";
+
+#-- create path relative to current context
+
+if ( $harctx->{VIEWPATH} and $new_path !=~ /^\\\\/ ) {
+ $new_path = "$harctx->{VIEWPATH}\\\\$new_path";
+}
+
+$logger->info("Creating new item path $new_path...");
+$harctx->CreateItemPath($new_path);
+

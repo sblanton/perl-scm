@@ -1,0 +1,21 @@
+#!/usr/bin/perl
+
+use strict;
+
+my $sub_dir = shift
+ or die "usage: mkbdiff <subdir>\nWhere <subdir> is a subdirectory of openmake.war/, e.g. kb/jobs/public";
+
+#-- Report only which files are different (-q), ignore all white space (-w)
+my @diffout = `diff -q -r -w -x .harvest.sig /opt/ca/harvest/server_tools/meister/kbserver/tomcat/webapps/openmake.ear/openmake.war/$sub_dir /var/opt/harvest/vista/prod/refdir/meister/linux/meister/kbserver/tomcat/webapps/openmake.ear/openmake.war/$sub_dir | grep -v index.html | grep -v web.xml | grep -v license.kb`;
+
+my @onlies = grep /Only in/, @diffout;
+
+my @ref_kb  = grep /vista/, @onlies;
+my @prod_kb = grep /server_tools/, @onlies;
+
+my @diff_files = grep /^Files/, @diffout;
+
+
+print "Only in prod refdir:\n@ref_kb\n";
+print "Only in kb:\n@prod_kb\n";
+print "Diffs:\n@diff_files\n";

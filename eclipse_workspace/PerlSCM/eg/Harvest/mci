@@ -1,0 +1,165 @@
+#!/usr/bin/perl -w
+
+#-- Load modules
+use Log::Log4perl "get_logger";
+use SCM::Tool::VersionControl::Harvest7;
+use File::Basename;
+use strict;
+
+#-- Set up lists of extension, directories and files
+#   to exclude from running unit tests
+my @regex_exclusions = qw(
+ \\.t$
+ \\.properties$
+ \\.ksh$
+ ^UNIT/
+ ^conf/
+ ^cpan/
+ ^setenv-unit
+ Tests.pl
+ units.pl
+ test*.pl
+ jboss_client_deploy
+ \\..ar$
+ \\.ctx$
+);
+
+my @unit_test_scripts = qw(
+ units.pl
+ test_all_build.pl
+);
+
+my $is_recursive = 0;
+
+#-- If the first arg starts with a dash, user is indicating recursive check in
+if ( @ARGV && $ARGV[0] =~ /^-/ ) {
+ shift;
+ $is_recursive = 1;
+}
+
+#-- Initialize log4perl
+
+my $logname = `logname 2>/dev/null`;
+$logname = 'har006' if $?;
+chomp $logname;
+
+Log::Log4perl::init("/var/opt/harvest/usr/$logname/log4perl-$logname.conf");
+my $logger = get_logger("SCM");
+
+$logger->logdie("No files passed. Usage: mco [-r] <files>")
+ unless @ARGV;
+
+#-- Instantiate the Harvest context
+my $harctx = SCM::Tool::VersionControl::Harvest7->new();
+$harctx->{USERFILE} = "/var/opt/harvest/usr/$logname/.harvest-${logname}.dfo";
+$harctx->load(".harvest-global.ctx");
+$harctx->load("/var/opt/harvest/usr/$logname/.harvest-$logname.ctx");
+
+#-- Quote the files...
+my @files;
+my @quotedFiles;
+
+foreach my $file (@ARGV) {
+ push @files, $file;
+ push @quotedFiles, "\"$file\"";
+
+}
+
+unless (exists $ENV{NOTIDY} ) {
+ my @t = `mtidy @files`;
+
+ if ( $? > 0 ) {
+    $logger->logdie(@t);
+
+ } elsif ( $? < 0 ) {
+    $logger->error("Couldn't execute mtidy");
+
+ } else {
+    $logger->info( "mtidy ", @t );
+ }
+
+}
+
+#-- Check for and run unit scripts
+
+
+foreach my $folder ( @files ) {
+ 
+ my $skipit = 0;
+ foreach my $pattern ( @regex_exclusions ) { 
+  my $regex = qr/$pattern/;
+  if ($folder =~ /$regex/ ) {
+   $skipit = 1;
+  }
+
+ }
+
+ my ( $name, $path, $ext ) = fileparse( $folder, qw( .pl .pm .sh .ksh) );
+
+ my $podchecker_rc = 0;
+
+#-- Check POD format
+if ( $ext and !$skipit ) {
+ print "PODCHECKER:\n";
+ print `podchecker $path$name$ext`;
+ $podchecker_rc = $? >> 8;
+
+   if ($podchecker_rc == 2) {
+  $logger->fatal("No POD found in $path$name$ext. You must have inline documentation. Check-in aborted. See 'perldoc perlpod' for
+  details. For shell script use:\npod=<<=cut\n\n=head1 Name\n\nMyName.ksh\n\n=cut\n\n to do POD");
+   exit 1;
+}
+
+   if($podchecker_rc == 1) {
+  $logger->fatal("POD errors found. Check-in aborted. See 'perldoc perlpod' for details.");
+   exit 1;
+  }
+
+ print "-" x 40 . "\n";
+ }
+
+ if ( $skipit ) {
+   $logger->info("Skipping $folder from UNIT test requirements...");
+ next; 
+ }
+
+ #-- Check for existence of a unit test script and print nasty
+ #   warning otherwise
+ my $unit_test_path = "$ENV{SHARED_HARUDP}/UNIT/$path$name/";
+
+my $found_unit_test_script = 0;
+
+#-- Loop through all the unit test scripts
+foreach my $unit_script ( @unit_test_scripts ) {
+ my $unit_test_script = $unit_test_path . $unit_script;
+
+ if ( -f $unit_test_script) {
+  $found_unit_test_script = 1;  
+  if ( $unit_script eq 'units.pl' ){
+   #-- Run unit test:
+   $logger->info(`$unit_test_script`);
+  }
+ }
+}
+  
+ unless ( $found_unit_test_script ) {
+  $logger->warn("YOU DO NOT HAVE A UNIT TEST SCRIPT FOR '$folder'\nMaybe you forgot to run '. setenv-unit $path$name$ext'?")
+ } 
+
+}
+
+$harctx->{CHECKIN_OPTS} = ' -op pc ';
+$harctx->{CLIENTPATH} = `pwd`;
+chomp $harctx->{CLIENTPATH};
+
+my $rc = 0;
+$logger->info("Checking in @quotedFiles");
+
+if ( $is_recursive ) {
+    $rc = $harctx->CheckInRecursive(@quotedFiles);
+
+} else {
+    $rc = $harctx->put(@quotedFiles);
+
+}
+

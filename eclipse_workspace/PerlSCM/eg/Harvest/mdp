@@ -1,0 +1,45 @@
+#!/usr/bin/env perl
+
+my $project = shift;
+
+#-- Load modules
+use Log::Log4perl "get_logger";
+use SCM::Tool::VersionControl::Harvest7;
+use AmFam::MPSCM;
+use strict;
+
+#-- Initialize log4perl
+
+my $logname = `logname`;
+chomp $logname;
+
+Log::Log4perl::init("/var/opt/harvest/usr/$logname/log4perl-$logname.conf");
+my $logger = get_logger("SCM");
+
+$logger->logdie("Usage: $0 <mpscm project>")
+ unless $project;
+
+my $project_file = "/var/opt/harvest/usr/$logname/harvest.prj";
+
+my %project_properties;
+
+if ( -f $project_file ) {
+ %project_properties = LoadProperties($project_file);
+}
+
+#-- Instantiate the harvest context
+
+
+my $my_harctx = SCM::Tool::VersionControl::Harvest7->new();
+$my_harctx->load( "/var/opt/harvest/usr/$logname/.harvest-$logname.ctx");
+
+my $package = $my_harctx->{PACKAGE};
+$logger->logdie("Your context does not have a package defined.") unless $package;
+$project_properties{"${project}.package"} = $package;
+
+my $project = $my_harctx->{PROJECT};
+$project_properties{"${project}.package"} = $package;
+
+$logger->info("Defining package for '$project' to $package .");
+$logger->info("Defining project for '$project' to $project.");
+SaveProperties($project_file, %project_properties); 

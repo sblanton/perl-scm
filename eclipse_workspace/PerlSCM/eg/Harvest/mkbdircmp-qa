@@ -1,0 +1,3 @@
+#!/usr/bin/ksh
+
+dircmp -s -w120 /var/opt/harvest/vista/qa/refdir/openmake641kb/openmake641/tomcat/webapps/openmake.ear/openmake.war/kb  /opt/ca/harvest/server_tools/openmake641/tomcat/webapps/openmake.ear/openmake.war/kb | grep -v .harvest.sig 

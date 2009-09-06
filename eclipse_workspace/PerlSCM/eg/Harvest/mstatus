@@ -1,0 +1,75 @@
+#!/bin/env perl
+
+#-- Load modules
+use Log::Log4perl "get_logger";
+use SCM::Tool::VersionControl::Harvest7;
+
+#-- Initialize log4perl
+my $logname = `logname`;
+chomp $logname;
+
+Log::Log4perl::init("/var/opt/harvest/usr/$logname/log4perl-$logname.conf");
+my $logger = get_logger("SCM");
+
+#-- Instantiate the harvest context
+$harctx = SCM::Tool::VersionControl::Harvest7->new();
+$harctx->{USERFILE} = "/var/opt/harvest/usr/$logname/.harvest-${logname}.dfo";
+$harctx->load( ".harvest-global.ctx");
+$harctx->load( "/var/opt/harvest/usr/$logname/.harvest-$logname.ctx");
+
+$logger->logdie('No arguments supplied. Provide a list of files to check!')
+ unless @ARGV;
+
+my @files = @ARGV;
+my %status;
+
+@files = grep !/\.log$/, @files;
+@files = grep !/\.out$/, @files;
+
+foreach my $file ( @files ) {
+
+ next unless -f $file;
+  
+ if ( -w $file ) {
+  $status{$file}{writable} = 1;
+ } else {
+  $status{$file}{writable} = 0;
+ }
+
+}
+
+my $iv_option = 'lv';
+my $it_option = 'r';
+my $ib_option = 'tb';
+
+$harctx->SelectVersions($iv_option, $it_option, $iv_option, keys %status);
+
+my @output = `cat hsv.log`;
+#-- rm harvest wrapper liness..
+shift @output;
+pop @output;
+
+#-- and weird buggy lines...
+@output = grep !/^N|^\-/, @output;
+@output = grep !/^\s+$/, @output;
+
+# 1,6,9,10,11
+
+foreach my $line ( @output ) {
+ chomp $line;
+
+ my @fields = split /\s{3,}/, $line;
+ my $new_line = "$fields[0]\:\t$fields[8]\tpkg: $fields[5]\tfile: $fields[9]\tlast version: $fields[10]";
+ $status{$fields[0]}{checkedout} = 1;
+
+ $logger->info($new_line);
+
+}
+
+foreach my $file ( keys %status ) {
+ if ( $status{$file}{writable} == 1
+ and  $status{$file}{checkedout} != 1 ) {
+  $logger->info("$file\:\tNOT CHECKED IN");
+ }
+}
+

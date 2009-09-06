@@ -1,0 +1,37 @@
+#!/usr/bin/perl -w
+
+use AmFam::MPSCM::Test::StubGenerator;
+use File::Path;
+use File::Basename;
+use strict;
+
+my $perl_file = shift;
+
+die unless $perl_file;
+
+my $stub=AmFam::MPSCM::Test::StubGenerator->new( {file=>$perl_file} );
+
+my $file = "UNIT/$perl_file";
+$file =~ s/\.p.$//;
+$file .= '/t/gen.t';
+
+my $dir = File::Basename::dirname $file;
+
+unless ( -d $dir  ) {
+ mkpath $dir;
+}
+
+print "Writing file $file...\n";
+
+if ( -f $file ) {
+ die "$file already exists!";
+}
+
+open T, ">$file"
+ or die;
+print T $stub->gen_testfile;
+
+close T;
+
+chmod 0755, $file;
+

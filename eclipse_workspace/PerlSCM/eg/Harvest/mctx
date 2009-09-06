@@ -1,0 +1,6 @@
+#!/usr/bin/ksh
+
+logname=`logname`
+
+vi /var/opt/harvest/usr/$logname/.harvest-${logname}.ctx
+

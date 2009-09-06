@@ -1,0 +1,159 @@
+#!/usr/bin/env perl
+#-- Script to check in the entire Openmake kb metadata into Harvest
+
+=head1 Name
+
+mkbci
+
+=head1 Synopsis
+
+Checks in files from the Meister web application under the openmake.war/ directory.
+
+=head1 Description
+
+ This script carefully copies files under the openmake.war/ directory to a temporary
+ one and checks the files into Harvest. This leaves the files writable in the runtime area.
+
+ Uses Perl SCM and a Harvest context file $SHARED_HARUDP/conf/meisterkb.ctx to control
+ where to check files into Harvest.
+
+ A Harvest package is created in the state indicated by the meisterkb.ctx that includes
+ the hostname in the package name in order to tell which environment the files were checked in from.
+ This let's one know if the files were check in from prod or they are new files checked in
+ from hardev.
+
+ Uses log4perl and a config file for log4perl: $SHARED_HARUDP/conf/omkb-log4perl.conf
+
+=head1 Usage
+
+mkbci <user> <component>
+
+=head1 Examples
+
+C<< mkbci sab070 kb/public/jobs >>
+
+Checks in all public jobs.
+
+C<< mkbci sab070 kb/groups >>
+
+Checks in all privlege group XML files. If you only need one, use delete version to trim
+your package.
+
+=cut
+
+#-- Load modules
+use strict;
+use Log::Log4perl "get_logger";
+use SCM::Tool::VersionControl::Harvest7;
+use Openmake::FileList;
+use File::Find;
+use File::Path;
+use File::Copy::Recursive qw(dircopy);
+
+my $openmake_war_dir = '/opt/ca/harvest/server_tools/meister/kbserver/tomcat/webapps/openmake.ear/openmake.war';
+
+Log::Log4perl::init("$ENV{SHARED_HARUDP}/conf/omkb-log4perl.conf");
+my $logger = get_logger("SCM");
+
+#-- Get user's name
+my $logname = shift or die
+"usage: $0 <user> <openmake.war subdirectory>";
+
+chomp $logname;
+
+my $component = shift or die
+"usage: $0 <user> <openmake.war subdirectory>";
+
+my $from_dir = "$openmake_war_dir/$component";
+die "from dir doesn't exist!" unless -d $from_dir;
+
+my $hostname = `hostname`;
+chomp $hostname;
+
+#-- Instantiate the harvest context
+
+my $harctx = SCM::Tool::VersionControl::Harvest7->new();
+
+$harctx->load( "$ENV{SHARED_HARUDP}/conf/meisterkb.ctx");
+
+$harctx->{VIEWPATH} .= "\\$component";
+$harctx->{USERFILE} = "/var/opt/harvest/usr/$logname/.harvest-$logname.dfo";
+$harctx->{CHECKIN_OPTS} = " -d -op pc ";
+
+my $time = time();
+
+my $package = "openmake-${component}-" . $hostname . "-" . $time;
+$package =~ s:/:_:g;
+
+$harctx->{CLIENTPATH} = "/tmp/omci/$time/$component";
+
+eval {mkpath($harctx->{CLIENTPATH},0,0750)};
+die "mkpath: $@" if $@;
+
+$harctx->set(PACKAGE => $package );
+$logger->info("Creating package $package");
+$harctx->CreatePackage();
+
+$logger->info("Copying files from $from_dir to $harctx->{CLIENTPATH}");
+
+my $num_copied = dircopy($from_dir,$harctx->{CLIENTPATH});
+die "no files found"  unless $num_copied;
+
+$logger->info("Copied $num_copied files");
+
+my @files;
+
+use vars qw/*name *dir/;
+*name = *File::Find::name; 
+*dir = *File::Find::dir; 
+
+File::Find::find({wanted => \&wanted}, $harctx->{CLIENTPATH});
+
+my $fileListObject = new Openmake::FileList( @files );
+@files = $fileListObject->getQuotedList();
+
+$logger->logdie("No files found!")
+ unless @files;
+
+my $i = 0;
+my $group_size = 50;
+my $last_index = (scalar @files < $group_size) ? $#files : $group_size - 1;
+
+while ( $i < scalar @files ) {
+ 
+ $logger->info("Reserving files @files[$i..$last_index]");
+ $harctx->lock(@files[$i..$last_index]); #-- reserve files
+
+ $logger->info("Checking in files @files[$i..$last_index]");
+ $harctx->put(@files[$i..$last_index]); #-- reserve files
+
+ $i += $group_size;
+ $last_index = ($last_index + $group_size > $#files ) ? $#files : $last_index + $group_size;
+
+
+}
+
+sub wanted {
+ my ( $dev, $ino, $mode, $nlink, $uid, $gid); 
+
+ my $rel_dir = $dir;
+
+ my $clientpath = $harctx->{CLIENTPATH};
+
+ my $re = qr/$clientpath($Openmake::FileList::DL)*/;
+ $rel_dir =~ s|$re||;
+
+ $rel_dir .= $Openmake::FileList::DL if $rel_dir;
+
+ if ( 
+  (($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_)) &&
+  -f _ &&
+  ! /^web\.xml\z/s &&
+  ! /^license\.kb\z/s &&
+  ! /^Administrators\.xml\z/s &&
+  ! /^index\.html\z/s &&
+  ! /^\.harvest\.sig\z/s
+ ) { push @files,"$rel_dir$_"}
+
+}
+

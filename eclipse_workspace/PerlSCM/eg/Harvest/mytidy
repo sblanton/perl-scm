@@ -1,0 +1,33 @@
+#!/usr/bin/env perl
+
+use File::Basename;
+use strict;
+
+my $logname = `logname`;
+chomp $logname;
+
+my $tidy_config = "/var/opt/harvest/usr/${logname}/.perltidyrc-${logname}";
+
+my @perl_files = @ARGV;
+
+
+if ( $ARGV[0] eq '-f' ) {
+ shift @perl_files;
+} else {
+@perl_files = grep /\.pl$|\.pm$|\.t$/, @ARGV;
+exit 0 unless @perl_files;
+}
+
+my $cmd = "perltidy -pro=$tidy_config -b -bext=mtdy @perl_files";
+
+print `$cmd`;
+
+unless ( -d "tidy" ) { mkdir "tidy", 0775 }
+
+foreach my $dir (@perl_files) {
+    $dir = dirname($dir);
+
+    print `mv -f $dir/*.mtdy tidy/ 2>/dev/null`;
+
+}
+

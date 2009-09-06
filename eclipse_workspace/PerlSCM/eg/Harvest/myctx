@@ -1,0 +1,37 @@
+#!/usr/bin/env perl
+
+use Config::Properties;
+use strict;
+
+my $logname = `logname`;
+chomp $logname;
+
+my $context_file = "/var/opt/harvest/usr/$logname/.harvest-${logname}.ctx";
+
+open CTX, "<$context_file"
+ or die;
+
+my $p = Config::Properties->new();
+
+die if $p->load(*CTX);
+
+print "\nPERSONAL SETTINGS:\n";
+foreach my $name ( $p->propertyNames() ) {
+ print "$name : " . $p->getProperty($name) . "\n";
+}
+
+print "\nGLOBAL SETTINGS:\n";
+my $global_context_file = '.harvest-global.ctx';
+
+open GCTX, "<$global_context_file"
+ or die;
+
+my $gp = Config::Properties->new();
+
+die if $gp->load(*GCTX);
+
+foreach my $name ( $gp->propertyNames() ) {
+ print "$name : " . $gp->getProperty($name) . "\n";
+}
+
+print "\n";

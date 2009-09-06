@@ -1,0 +1,14 @@
+#!/usr/bin/env perl
+
+#-- Report only which files are different (-q), ignore all white space (-w)
+my @diffout = `diff -q  -w /var/opt/harvest/mpscm-dev/ca/udp /var/opt/harvest/ca/udp | grep -v .harvest.sig | grep -v .log | grep -v "Common subdirectories" | grep -v .harvest-global.ctx`;
+
+my @dev_udps = grep /mpscm-dev/, (grep /Only in/, @diffout);
+my @prod_udps = grep !/mpscm-dev/, (grep /Only in/, @diffout);
+
+my @diff_files = grep /^Files/, @diffout;
+
+
+print "Only in dev:\n@dev_udps\n";
+print "Only in prod:\n@prod_udps\n";
+print "Diffs:\n@diff_files\n";

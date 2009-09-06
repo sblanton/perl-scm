@@ -1,0 +1,19 @@
+#!/usr/bin/env perl
+
+my $app = shift;
+
+die unless $app;
+
+my $source_dir = "/var/opt/harvest/vista/int/refdir/$app";
+
+die "$source_dir not there..."
+ unless -d $source_dir;
+
+my $dest_dir = "/var/opt/harvest/mpscm-dev/vista/int/refdir/$app";
+
+mkdir $dest_dir
+ unless -d $dest_dir;
+
+print `cp -R $source_dir/* $dest_dir`;
+
+

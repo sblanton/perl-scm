@@ -1,0 +1,10 @@
+BROKER      SCM0200A
+PROJECT     HRIS
+STATE       Development
+VIEWPATH    \HRIS
+CLIENTPATH  .
+USER        sblanton
+PASSWORD    mypasswd
+PACKAGE     testpkg1
+
+

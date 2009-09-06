@@ -1,0 +1,14 @@
+#!/usr/bin/perl
+
+use strict;
+
+my $tier = shift
+ or die "usage: mkbrefdir <tier> <subdir>\nWhere <subdir> is a subdirectory of openmake.war/, e.g. kb/jobs/public";
+
+my $sub_dir = shift
+ or die "usage: mkbrefdir <tier> <subdir>\nWhere <subdir> is a subdirectory of openmake.war/, e.g. kb/jobs/public";
+
+my @diffout = `find /var/opt/harvest/vista/$tier/refdir/meister/linux/meister/kbserver/tomcat/webapps/openmake.ear/openmake.war/$sub_dir -type f ! -name ".harvest.sig"`;
+
+print "@diffout\n";
+

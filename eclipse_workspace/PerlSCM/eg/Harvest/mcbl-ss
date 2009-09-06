@@ -1,0 +1,67 @@
+#!/usr/bin/env perl
+
+#-- Load modules
+use Log::Log4perl "get_logger";
+use SCM::Tool::VersionControl::Harvest;  #-- uses user and password
+use SCM::Tool::VersionControl::Harvest7; #-- uses encrypted password file
+use GenericUDP;
+use strict;
+
+my $snapshot = pop;
+my $project = pop;
+my $password = pop;
+my $user = pop;
+
+die "usage: mcbl-ss [<user> <password>] <project> <snapshot>\n"
+ unless $project and $snapshot;
+
+#-- Initialize log4perl
+
+my $logname;
+our $Log4perlLogFile = "$ENV{VISTA}/prod/logs/ctp-harvest.log";
+Log::Log4perl::init("$ENV{SHARED_HARUDP}/conf/ctp-log4perl.conf");
+my $logger = get_logger("SCM");
+
+unless ( $user and $password ) {
+ $logname = `logname`;
+ chomp $logname;
+
+}
+
+
+#-- Make db query to find repository from project name
+my $dbh;
+
+die "$DBI::errstr"
+ unless $dbh = &Hv_env::get_dbh('ha5p');
+
+my $repository = RepositoryForEnvironment($dbh, $project);
+$repository =~ s/\s*$//;
+
+
+#-- Instantiate the harvest context
+
+my $harctx = SCM::Tool::VersionControl::Harvest7->new();
+
+if ( $user and $password ) {
+ $harctx->{USER} = $user;
+ $harctx->{PASSWORD} = $password;
+ delete $harctx->{USERFILE};
+
+} else {
+ $harctx->{USERFILE} = "/var/opt/harvest/usr/$logname/.harvest-${logname}.dfo";
+ delete $harctx->{USER};
+ delete $harctx->{PASSWORD};
+
+}
+
+$harctx->{BROKER}   = "harprod";
+$harctx->{BROKER} = "hardev"
+ if $ENV{VISTA} =~ /mpscm-dev/;
+
+$harctx->{PROJECT}  = $project;
+$harctx->{REPOSITORY}  = $repository;
+
+$logger->info("${user}: Adding $repository baseline to $project...");
+$harctx->AddSnapshot($snapshot);
+

@@ -1,0 +1,6 @@
+#!/usr/bin/ksh
+
+cp -R /var/opt/harvest/vista/dev/refdir/openmake641kb/openmake641/tomcat/webapps/openmake.ear/openmake.war/kb/projects/* /opt/ca/harvest/server_tools/openmake641/tomcat/webapps/openmake.ear/openmake.war/kb/projects
+
+chmod -R u+w /opt/ca/harvest/server_tools/openmake641/tomcat/webapps/openmake.ear/openmake.war/kb/projects/
+
