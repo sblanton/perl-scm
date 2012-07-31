@@ -8,7 +8,7 @@ BEGIN {
  #-- Inherits exporter functions to export functions
  @ISA=qw(Exporter);
 
- @EXPORT = qw( $DL, $eDL, $insensitive );
+ @EXPORT = qw( $DL $eDL $insensitive );
  
  $VERSION = 0.0.0;
 

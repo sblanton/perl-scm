@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<includepath>
+  <includepathentry path="/home/sblanton/work/eclipse/perl-scm/lib" />
+  <includepathentry path="/home/sblanton/work/eclipse/Openmake/lib" />
+</includepath>
+

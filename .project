@@ -3,6 +3,7 @@
 	<name>perl-scm</name>
 	<comment></comment>
 	<projects>
+		<project>Openmake</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
