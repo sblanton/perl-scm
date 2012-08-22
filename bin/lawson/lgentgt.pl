@@ -2,7 +2,7 @@
 
 #-- Load modules
 use Log::Log4perl "get_logger";
-use SCM::Platform::Lawson;
+use SCM::System::Lawson;
 
 #-- Initialize log4perl
 Log::Log4perl::init("$ENV{HOME}/scm-log4perl.conf");
